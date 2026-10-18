@@ -1,0 +1,63 @@
+name: Update the manifest
+
+# Copies the latest FusionSpace HPR release's Scoop manifest into bucket/fusionspace-hpr.json and
+# commits it when it changed. The manifest is a release asset, fusionspace-hpr.json, written by the
+# release workflow of nrdptel/fusionspace-eridanus from the release's own archives. Runs daily and
+# by hand (Actions, then Run workflow). It reads the public release and pushes here with this
+# repository's own token; no other credential is involved.
+#
+# GitHub turns off scheduled workflows in a public repository after 60 days without activity: if
+# this one shows as disabled, enable it on its Actions page (or
+# `gh workflow enable scoop-update.yml --repo nrdptel/scoop-bucket`) and run it once by hand.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-manifest
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fetch the latest release's manifest
+        id: fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: nrdptel/fusionspace-eridanus
+        run: |
+          set -euo pipefail
+          # The latest published release; drafts and pre-releases are never "latest".
+          tag="$(gh api "repos/$SOURCE/releases/latest" --jq .tag_name)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if ! gh api "repos/$SOURCE/releases/tags/$tag" --jq '.assets[].name' | grep -qx fusionspace-hpr.json; then
+            echo "::notice::$tag has no fusionspace-hpr.json; the manifest stays as it is"
+            exit 0
+          fi
+          gh release download "$tag" --repo "$SOURCE" --pattern fusionspace-hpr.json --dir "$RUNNER_TEMP" --clobber
+          new="$RUNNER_TEMP/fusionspace-hpr.json"
+          # The file must be JSON with the release's version, an architecture entry and the binary.
+          jq -e --arg v "${tag#v}" \
+            '.version == $v and (.architecture | length) > 0 and .bin == "hpr.exe"' "$new" > /dev/null
+          mkdir -p bucket
+          cp "$new" bucket/fusionspace-hpr.json
+      - name: Commit it if it changed
+        env:
+          TAG: ${{ steps.fetch.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git add bucket/fusionspace-hpr.json
+          if git diff --cached --quiet; then
+            echo "The manifest is already ${TAG#v}'s."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "fusionspace-hpr ${TAG#v}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

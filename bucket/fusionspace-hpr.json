@@ -1,0 +1,25 @@
+{
+    "version": "0.1.0",
+    "description": "Flight simulator for hobby and high-power rockets: the hpr command line.",
+    "homepage": "https://hpr.fusionspace.co",
+    "license": "MIT|Apache-2.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/nrdptel/fusionspace-eridanus/releases/download/v0.1.0/fusionspace-hpr-0.1.0-x86_64-pc-windows-msvc.zip",
+            "hash": "44d99247fc5855db46541978c51b454a13ab6db7a20b2161750738588002227a",
+            "extract_dir": "fusionspace-hpr-0.1.0-x86_64-pc-windows-msvc"
+        }
+    },
+    "bin": "hpr.exe",
+    "checkver": {
+        "github": "https://github.com/nrdptel/fusionspace-eridanus"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/nrdptel/fusionspace-eridanus/releases/download/v$version/fusionspace-hpr-$version-x86_64-pc-windows-msvc.zip",
+                "extract_dir": "fusionspace-hpr-$version-x86_64-pc-windows-msvc"
+            }
+        }
+    }
+}
